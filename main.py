@@ -3,6 +3,7 @@ import json
 import sqlite3
 import csv
 import io
+import re
 from time import time
 from datetime import datetime
 from uuid import uuid4
@@ -73,9 +74,7 @@ class Blockchain:
             rows = self.cursor.fetchall()
             return [json.loads(row[0]) for row in rows]
         except sqlite3.OperationalError:
-            # Table might not exist yet if init_db() hasn't run in this session
             return []
-
 
     def save_block(self, block):
         self.cursor.execute("INSERT INTO blockchain_data (block_data) VALUES (?)", (json.dumps(block, sort_keys=True),))
@@ -102,14 +101,12 @@ class Blockchain:
             'selection': selection,
             'timestamp': time()
         }
-        # Get current block, add transaction, then update it
         current_block = self.chain[-1]
         current_block['transactions'].append(transaction)
         
         self.cursor.execute("UPDATE blockchain_data SET block_data = ? WHERE id = ?", 
                             (json.dumps(current_block, sort_keys=True), current_block['index']))
         self.conn.commit()
-        # Update the in-memory chain as well
         self.chain[-1] = current_block
         return self.last_block['index']
 
@@ -144,11 +141,25 @@ def signup():
     if role not in ['creator', 'voter']:
         return jsonify({'error': 'Invalid role specified'}), 400
 
+    if not re.match(r"[^@]+@[^@]+\.[^@]+", username):
+        return jsonify({'error': 'Invalid email address format'}), 400
+
+    if len(password) < 8:
+        return jsonify({'error': 'Password must be at least 8 characters long'}), 400
+    if not re.search(r"[a-z]", password):
+        return jsonify({'error': 'Password must contain a lowercase letter'}), 400
+    if not re.search(r"[A-Z]", password):
+        return jsonify({'error': 'Password must contain an uppercase letter'}), 400
+    if not re.search(r"[0-9]", password):
+        return jsonify({'error': 'Password must contain a number'}), 400
+    if not re.search(r"[!@#$%^&*(),.?:{}|<>]", password):
+        return jsonify({'error': 'Password must contain a special character'}), 400
+
     conn = get_db_connection()
     user = conn.execute('SELECT * FROM users WHERE username = ?', (username,)).fetchone()
     if user:
         conn.close()
-        return jsonify({'error': 'Username already exists'}), 409
+        return jsonify({'error': 'Username (email) is already registered'}), 409
     
     password_hash = generate_password_hash(password)
     conn.execute('INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)', 
@@ -203,9 +214,6 @@ def create_poll():
         if not user or user['role'] != 'creator':
             return jsonify({'error': 'User is not authorized to create polls'}), 403
 
-        cursor.execute('INSERT INTO polls (poll_id, creator_username, question, options, start_time, end_time) VALUES (?, ?, ?, ?, ?, ?)',
-                     (poll_id, creator_username, question, options_str, start_time, end_time))
-        
         voters = []
         if voter_input_method == 'manual':
             voters_text = request.form.get('voters_text', '')
@@ -223,6 +231,13 @@ def create_poll():
 
         if not voters:
             return jsonify({'error': 'Voter list cannot be empty'}), 400
+
+        for aadhar in voters:
+            if not aadhar.isdigit() or len(aadhar) != 12:
+                return jsonify({'error': f'Invalid Aadhaar number found: "{aadhar}". All numbers must be exactly 12 digits.'}), 400
+
+        cursor.execute('INSERT INTO polls (poll_id, creator_username, question, options, start_time, end_time) VALUES (?, ?, ?, ?, ?, ?)',
+                     (poll_id, creator_username, question, options_str, start_time, end_time))
 
         for aadhar in voters:
             aadhar_hash = hashlib.sha256(aadhar.encode()).hexdigest()
@@ -260,7 +275,6 @@ def close_poll():
     conn.commit()
     conn.close()
     return jsonify({'message': 'Poll closed successfully'}), 200
-
 
 # --- Voter Routes ---
 @app.route('/poll_status/<poll_id>', methods=['GET'])
@@ -380,7 +394,6 @@ def export_results(poll_id):
     if not analytics_data:
         return jsonify({'error': 'Poll not found'}), 404
 
-    # Create CSV
     output = io.StringIO()
     writer = csv.writer(output)
     

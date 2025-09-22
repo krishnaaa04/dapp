@@ -35,6 +35,40 @@ const EmptyStateIllustration = () => (
         <circle cx="100" cy="100" r="40" stroke="#16A34A" strokeWidth="6" strokeDasharray="10 5"/>
     </svg>
 );
+const HeroIllustration = () => (
+    <svg viewBox="0 0 500 400" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect width="500" height="400" fill="transparent"/>
+        <g clipPath="url(#clip0)">
+            <rect x="100" y="80" width="300" height="240" rx="20" fill="#F0FDF4"/>
+            <rect x="120" y="100" width="260" height="20" rx="10" fill="#DCFCE7"/>
+            <rect x="120" y="140" width="260" height="10" rx="5" fill="#BBF7D0"/>
+            <rect x="120" y="160" width="200" height="10" rx="5" fill="#BBF7D0"/>
+            <rect x="120" y="200" width="260" height="10" rx="5" fill="#BBF7D0"/>
+            <rect x="120" y="220" width="180" height="10" rx="5" fill="#BBF7D0"/>
+            <rect x="120" y="260" width="260" height="10" rx="5" fill="#BBF7D0"/>
+            <rect x="120" y="280" width="220" height="10" rx="5" fill="#BBF7D0"/>
+
+            <g filter="url(#filter0_d)">
+                <rect x="60" y="180" width="120" height="80" rx="15" fill="white" />
+                <path d="M85 220L105 200L125 220" stroke="#16A34A" strokeWidth="8" strokeLinecap="round" strokeLinejoin="round"/>
+            </g>
+        </g>
+        <defs>
+            <filter id="filter0_d" x="50" y="174" width="140" height="100" filterUnits="userSpaceOnUse" colorInterpolationFilters="sRGB">
+                <feFlood floodOpacity="0" result="BackgroundImageFix"/>
+                <feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0"/>
+                <feOffset dy="4"/>
+                <feGaussianBlur stdDeviation="5"/>
+                <feColorMatrix type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.05 0"/>
+                <feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow"/>
+                <feBlend mode="normal" in="SourceGraphic" in2="effect1_dropShadow" result="shape"/>
+            </filter>
+            <clipPath id="clip0">
+                <rect width="500" height="400" fill="white"/>
+            </clipPath>
+        </defs>
+    </svg>
+);
 
 
 // --- Main App Component ---
@@ -116,7 +150,7 @@ function Navbar({ user, navigateTo, onLogout }) {
   return (
     <header className="navbar">
       <div className="navbar-container">
-        <h1 onClick={goHome}>BlockVote</h1>
+        <h1 onClick={goHome}>Votex</h1>
         <nav>
           {user ? (
             <>
@@ -145,6 +179,9 @@ function HomePage({ navigateTo }) {
             <button onClick={() => navigateTo('signup')} className="btn btn-primary">Get Started</button>
             </div>
         </div>
+        <div className="hero-illustration">
+            <HeroIllustration />
+        </div>
       </div>
     );
 }
@@ -154,6 +191,45 @@ function AuthPage({ isSignup, onLoginSuccess, navigateTo }) {
     const [password, setPassword] = useState('');
     const [role, setRole] = useState('creator');
     const [message, setMessage] = useState({ text: '', isError: false });
+    
+    const [validation, setValidation] = useState({
+        email: null,
+        passLength: null,
+        passUpper: null,
+        passLower: null,
+        passNumber: null,
+        passSpecial: null,
+    });
+    const [isFormValid, setIsFormValid] = useState(false);
+    
+    useEffect(() => {
+        const isEmailValid = /[^@]+@[^@]+\.[^@]+/.test(username);
+        const isPassValid = password.length >= 8 &&
+                           /[A-Z]/.test(password) &&
+                           /[a-z]/.test(password) &&
+                           /[0-9]/.test(password) &&
+                           /[!@#$%^&*(),.?:{}|<>]/.test(password);
+        
+        setValidation(prev => ({ ...prev, email: isEmailValid || username === '' ? true : false }));
+
+        if (isSignup) {
+            setIsFormValid(isEmailValid && isPassValid);
+        } else {
+            setIsFormValid(username !== '' && password !== '');
+        }
+
+    }, [username, password, isSignup]);
+
+    const validatePassword = (pass) => {
+        setValidation(prev => ({
+            ...prev,
+            passLength: pass.length >= 8,
+            passUpper: /[A-Z]/.test(pass),
+            passLower: /[a-z]/.test(pass),
+            passNumber: /[0-9]/.test(pass),
+            passSpecial: /[!@#$%^&*(),.?:{}|<>]/.test(pass),
+        }));
+    };
   
     const handleSubmit = async (e) => {
       e.preventDefault();
@@ -192,11 +268,28 @@ function AuthPage({ isSignup, onLoginSuccess, navigateTo }) {
           <h2>{isSignup ? 'Create an Account' : 'Welcome Back'}</h2>
           <Message message={message.text} isError={message.isError} />
           <form onSubmit={handleSubmit} className="form-group">
-            <label>Username</label>
-            <input type="text" value={username} onChange={(e) => setUsername(e.target.value)} required />
+            <label>Email Address</label>
+            <input 
+                type="text" 
+                value={username} 
+                onChange={(e) => setUsername(e.target.value)} 
+                required 
+            />
+            {isSignup && validation.email === false && <p className="validation-error">Please enter a valid email address.</p>}
+            
             <label>Password</label>
-            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+            <input 
+                type="password" 
+                value={password} 
+                onChange={(e) => {
+                    setPassword(e.target.value);
+                    if (isSignup) validatePassword(e.target.value);
+                }} 
+                required 
+            />
   
+            {isSignup && <PasswordStrength validation={validation} />}
+
             {isSignup && (
               <>
                 <label>I am a:</label>
@@ -213,7 +306,7 @@ function AuthPage({ isSignup, onLoginSuccess, navigateTo }) {
               </>
             )}
   
-            <button type="submit" className="btn btn-primary full-width">
+            <button type="submit" className="btn btn-primary full-width" disabled={isSignup && !isFormValid}>
               {isSignup ? 'Create Account' : 'Login'}
             </button>
           </form>
@@ -227,6 +320,29 @@ function AuthPage({ isSignup, onLoginSuccess, navigateTo }) {
       </div>
     );
 }
+
+function PasswordStrength({ validation }) {
+    const checks = [
+        { key: 'passLength', text: 'At least 8 characters' },
+        { key: 'passUpper', text: 'An uppercase letter' },
+        { key: 'passLower', text: 'A lowercase letter' },
+        { key: 'passNumber', text: 'A number' },
+        { key: 'passSpecial', text: 'A special character (!@#...)' },
+    ];
+
+    if (validation.passLength === null) return null;
+
+    return (
+        <div className="password-strength">
+            {checks.map(check => (
+                <div key={check.key} className={`strength-check ${validation[check.key] ? 'valid' : ''}`}>
+                    {validation[check.key] ? '✓' : '○'} {check.text}
+                </div>
+            ))}
+        </div>
+    );
+}
+
 
 function CreatorDashboard({ user, navigateTo }) {
     const [polls, setPolls] = useState([]);
@@ -253,7 +369,7 @@ function CreatorDashboard({ user, navigateTo }) {
             const data = await response.json();
             if (!response.ok) throw new Error(data.error);
             alert('Poll closed successfully');
-            fetchPolls(); // Refresh the list
+            fetchPolls();
         } catch (error) {
             alert(`Error: ${error.message}`);
         }
@@ -331,9 +447,35 @@ function CreatePollForm({ user, navigateTo }) {
     const [startTime, setStartTime] = useState('');
     const [endTime, setEndTime] = useState('');
     const [message, setMessage] = useState({ text: '', isError: false });
+    const [voterListError, setVoterListError] = useState(null);
+
+    useEffect(() => {
+        if (voterInputMethod === 'manual') {
+            const lines = votersText.split('\n');
+            let invalidLine = null;
+            for (const line of lines) {
+                const trimmedLine = line.trim();
+                if (trimmedLine !== '' && (!/^\d{12}$/.test(trimmedLine))) {
+                    invalidLine = trimmedLine;
+                    break;
+                }
+            }
+            if (invalidLine) {
+                setVoterListError(`Invalid Aadhaar: "${invalidLine}". Numbers must be exactly 12 digits.`);
+            } else {
+                setVoterListError(null);
+            }
+        } else {
+            setVoterListError(null);
+        }
+    }, [votersText, voterInputMethod]);
   
     const handleCreatePoll = async (e) => {
       e.preventDefault();
+      if (voterListError) {
+          setMessage({ text: 'Please fix the errors in the voter list before creating the poll.', isError: true });
+          return;
+      }
   
       const formData = new FormData();
       formData.append('question', question);
@@ -389,7 +531,10 @@ function CreatePollForm({ user, navigateTo }) {
             </div>
             
             {voterInputMethod === 'manual' ? (
-                <textarea value={votersText} onChange={(e) => setVotersText(e.target.value)} placeholder="Enter Aadhaar numbers, one per line." rows="5"></textarea>
+                <>
+                    <textarea value={votersText} onChange={(e) => setVotersText(e.target.value)} placeholder="Enter Aadhaar numbers, one per line." rows="5"></textarea>
+                    {voterListError && <p className="validation-error">{voterListError}</p>}
+                </>
             ) : (
                 <div className="file-input-wrapper">
                     <input type="file" id="csv-upload" accept=".csv" onChange={(e) => setVotersFile(e.target.files[0])} />
@@ -407,7 +552,7 @@ function CreatePollForm({ user, navigateTo }) {
                 <input type="datetime-local" value={endTime} onChange={(e) => setEndTime(e.target.value)} required />
               </div>
             </div>
-            <button type="submit" className="btn btn-primary full-width">Create Poll</button>
+            <button type="submit" className="btn btn-primary full-width" disabled={!!voterListError}>Create Poll</button>
           </form>
         </div>
       </div>
@@ -473,57 +618,57 @@ function PollAnalyticsDashboard({ pollId, navigateTo }) {
     const durationProgress = Math.max(0, 100 - (timeLeft / (new Date(analytics.end_time) - new Date(analytics.start_time))) * 100);
 
     return (
-        <div className="dashboard-container">
-            <button className="btn back-button" onClick={() => navigateTo('creatorDashboard')}>← Back to Dashboard</button>
-            <div className="dashboard-header">
-                <h2>Analytics for: {analytics.question}</h2>
-                <button className="btn" onClick={handleExport}>Export Results (CSV)</button>
+      <div className="dashboard-container">
+        <button className="btn back-button" onClick={() => navigateTo('creatorDashboard')}>← Back to Dashboard</button>
+        <div className="dashboard-header">
+          <h2>Analytics for: {analytics.question}</h2>
+          <button className="btn" onClick={handleExport}>Export Results (CSV)</button>
+        </div>
+
+        <div className="stats-grid">
+            <div className="card stat-card">
+                <h4>Total Votes</h4>
+                <p>{analytics.total_votes}</p>
             </div>
+            <div className="card stat-card">
+                <h4>Eligible Voters</h4>
+                <p>{analytics.total_voters}</p>
+            </div>
+            <div className="card stat-card">
+                <h4>Participation Rate</h4>
+                <p>{participationRate.toFixed(1)}%</p>
+            </div>
+            <div className="card stat-card">
+                <h4>Status</h4>
+                <p className={`status-badge ${analytics.is_active ? 'green' : 'red'}`}>{analytics.is_active ? 'Active' : 'Ended'}</p>
+            </div>
+        </div>
 
-            <div className="stats-grid">
-                <div className="card stat-card">
-                    <h4>Total Votes</h4>
-                    <p>{analytics.total_votes}</p>
+        {analytics.is_active && (
+            <div className="card">
+                <h4>Poll Duration</h4>
+                <div className="progress-bar-container">
+                    <div className="progress-bar" style={{ width: `${durationProgress}%` }}></div>
                 </div>
-                <div className="card stat-card">
-                    <h4>Eligible Voters</h4>
-                    <p>{analytics.total_voters}</p>
-                </div>
-                <div className="card stat-card">
-                    <h4>Participation Rate</h4>
-                    <p>{participationRate.toFixed(1)}%</p>
-                </div>
-                <div className="card stat-card">
-                    <h4>Status</h4>
-                    <p className={`status-badge ${analytics.is_active ? 'green' : 'red'}`}>{analytics.is_active ? 'Active' : 'Ended'}</p>
+                <small>Poll ends on {new Date(analytics.end_time).toLocaleString()}</small>
+            </div>
+        )}
+
+        <div className="charts-grid">
+            <div className="card chart-card">
+                <h4>Results Overview</h4>
+                <div className="pie-chart-container">
+                    <Pie data={pieChartData} options={chartOptions} />
                 </div>
             </div>
-
-            {analytics.is_active && (
-                <div className="card">
-                    <h4>Poll Duration</h4>
-                    <div className="progress-bar-container">
-                        <div className="progress-bar" style={{ width: `${durationProgress}%` }}></div>
-                    </div>
-                    <small>Poll ends on {new Date(analytics.end_time).toLocaleString()}</small>
-                </div>
-            )}
-
-            <div className="charts-grid">
-                <div className="card chart-card">
-                    <h4>Results Overview</h4>
-                    <div className="pie-chart-container">
-                        <Pie data={pieChartData} options={chartOptions} />
-                    </div>
-                </div>
-                <div className="card chart-card">
-                    <h4>Results Breakdown</h4>
-                    <div className="bar-chart-container">
-                        <Bar data={barChartData} options={barChartOptions} />
-                    </div>
+            <div className="card chart-card">
+                <h4>Results Breakdown</h4>
+                <div className="bar-chart-container">
+                    <Bar data={barChartData} options={barChartOptions} />
                 </div>
             </div>
         </div>
+      </div>
     );
 }
   
